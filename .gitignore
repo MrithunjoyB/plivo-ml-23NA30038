@@ -2,4 +2,4 @@ baseline.pt
 exp*.pt
 __pycache__/
 *.pyc
-.DS_Store
+.DS_Storeexp*.log

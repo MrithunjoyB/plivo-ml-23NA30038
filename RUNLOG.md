@@ -38,3 +38,20 @@
 - **Relative improvement:** 11.70%
 - **Result:** Accepted as the current best configuration.
 - **Conclusion:** Increasing the batch size substantially improved generalization under the fixed optimizer-step budget. Batch size 32 processed approximately 8.19 million token positions, compared with approximately 2.05 million for the baseline. The result indicates that the starter configuration was primarily limited by training-token throughput rather than model capacity.
+
+## Run 03 — Increased Batch Size to 64
+
+- **Checkpoint:** `exp03_batch64.pt`
+- **Hypothesis:** Increasing the batch size from 32 to 64 will process twice as many token positions within the fixed 2,000-step budget and may further improve gradient stability and generalization.
+- **Single change:** Increased `--batch` from `32` to `64`; architecture, tokenizer, optimizer, learning rate, seed, sequence length, and step count remained unchanged.
+- **Parameters:** 1,339,840
+- **Training time:** 463 seconds
+- **Final reported training loss:** 1.3442
+- **Dev BPB before:** 2.0943
+- **Dev BPB after:** 1.9969
+- **Absolute improvement over previous best:** 0.0974 BPB
+- **Relative improvement over previous best:** 4.65%
+- **Absolute improvement over baseline:** 0.3749 BPB
+- **Relative improvement over baseline:** 15.81%
+- **Result:** Accepted as the current best configuration.
+- **Conclusion:** Increasing the batch size from 32 to 64 produced another substantial improvement, confirming that additional training-token throughput remains valuable under the fixed optimizer-step limit. The smaller gain relative to the previous batch-size increase indicates diminishing returns, but batch size 64 remains clearly superior to all earlier configurations.
