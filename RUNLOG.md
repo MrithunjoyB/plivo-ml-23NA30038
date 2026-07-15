@@ -55,3 +55,20 @@
 - **Relative improvement over baseline:** 15.81%
 - **Result:** Accepted as the current best configuration.
 - **Conclusion:** Increasing the batch size from 32 to 64 produced another substantial improvement, confirming that additional training-token throughput remains valuable under the fixed optimizer-step limit. The smaller gain relative to the previous batch-size increase indicates diminishing returns, but batch size 64 remains clearly superior to all earlier configurations.
+
+## Run 04 — Increased Batch Size to 128
+
+- **Checkpoint:** `exp04_batch128.pt`
+- **Hypothesis:** Increasing the batch size from 64 to 128 will process twice as many token positions within the fixed 2,000-step budget and may continue improving generalization, although diminishing returns are expected.
+- **Single change:** Increased `--batch` from `64` to `128`; architecture, tokenizer, optimizer, learning rate, seed, sequence length, and step count remained unchanged.
+- **Parameters:** 1,339,840
+- **Training time:** 1,027 seconds
+- **Final reported training loss:** 1.2767
+- **Dev BPB before:** 1.9969
+- **Dev BPB after:** 1.9380
+- **Absolute improvement over previous best:** 0.0589 BPB
+- **Relative improvement over previous best:** 2.95%
+- **Absolute improvement over baseline:** 0.4338 BPB
+- **Relative improvement over baseline:** 18.29%
+- **Result:** Accepted as the current best configuration.
+- **Conclusion:** Batch size 128 produced another valid improvement, confirming that increased token throughput remained beneficial. However, the gain was smaller than the batch 32 and batch 64 improvements, while training time increased to more than 17 minutes. This demonstrates diminishing returns from further batch scaling, so subsequent experiments will target tokenizer and optimization efficiency instead.
