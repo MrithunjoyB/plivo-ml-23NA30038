@@ -3,3 +3,4 @@ exp*.pt
 __pycache__/
 *.pyc
 .DS_Storeexp*.log
+exp*.log
