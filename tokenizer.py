@@ -1,39 +1,76 @@
-"""Baseline tokenizer: raw UTF-8 bytes, vocab of 256. Simple, never fails on
-unseen text — and treats a Devanagari character as 3 tokens. Think about
-what that does to your model's context window and your token budget on the
-Hindi part of the corpus.
+"""Lossless hybrid UTF-8 tokenizer.
 
-You may replace this with anything you train ON THE PROVIDED CORPUS ONLY
-(e.g., BPE), as long as:
-  1. it can encode ARBITRARY UTF-8 text (byte-level fallback) and it is
-     LOSSLESS: decode(encode(text)) == text, exactly. The scorer and the
-     graders both verify this round-trip — a lossy tokenizer makes bpb
-     meaningless and disqualifies the run.
-  2. this file keeps exposing:  load() -> tokenizer object with
-     .encode(str) -> list[int], .decode(list[int]) -> str, .vocab_size.
-     train.py and evaluate.py call load() with NO arguments — keep any
-     extra parameters optional.
-  3. anything it needs is saved under your submission folder and loaded by
-     load() with no internet. Grading runs with cwd = your folder; resolve
-     saved files relative to __file__ to be safe.
+IDs 0–255 represent raw bytes and guarantee fallback support for arbitrary
+UTF-8 text. IDs 256+ represent frequent non-ASCII characters learned only
+from the provided training corpus.
 """
+
 import json
+from pathlib import Path
 
 
-class ByteTokenizer:
-    vocab_size = 256
+class HybridUTF8Tokenizer:
+    def __init__(self, chars):
+        if len(chars) != len(set(chars)):
+            raise ValueError("Tokenizer vocabulary contains duplicate characters")
+
+        self.id_to_char = list(chars)
+        self.char_to_id = {
+            char: 256 + index
+            for index, char in enumerate(self.id_to_char)
+        }
+        self.vocab_size = 256 + len(self.id_to_char)
 
     def encode(self, text):
-        return list(text.encode("utf-8"))
+        ids = []
+
+        for char in text:
+            token_id = self.char_to_id.get(char)
+
+            if token_id is not None:
+                ids.append(token_id)
+            else:
+                ids.extend(char.encode("utf-8"))
+
+        return ids
 
     def decode(self, ids):
-        return bytes(ids).decode("utf-8", errors="replace")
+        raw = bytearray()
+
+        for token_id in ids:
+            token_id = int(token_id)
+
+            if 0 <= token_id < 256:
+                raw.append(token_id)
+            elif 256 <= token_id < self.vocab_size:
+                char = self.id_to_char[token_id - 256]
+                raw.extend(char.encode("utf-8"))
+            else:
+                raise ValueError(f"Invalid token ID: {token_id}")
+
+        return raw.decode("utf-8")
 
     def save(self, path):
-        with open(path, "w") as f:
-            json.dump({"type": "byte"}, f)
+        payload = {
+            "type": "hybrid_utf8_char",
+            "chars": self.id_to_char,
+        }
+        Path(path).write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
 
 
 def load(path=None):
-    """Return the tokenizer used by evaluate.py. Replace as needed."""
-    return ByteTokenizer()
+    vocab_path = (
+        Path(path)
+        if path is not None
+        else Path(__file__).with_name("tokenizer_vocab.json")
+    )
+
+    payload = json.loads(vocab_path.read_text(encoding="utf-8"))
+
+    if payload.get("type") != "hybrid_utf8_char":
+        raise ValueError("Unsupported tokenizer vocabulary format")
+
+    return HybridUTF8Tokenizer(payload["chars"])

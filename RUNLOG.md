@@ -72,3 +72,24 @@
 - **Relative improvement over baseline:** 18.29%
 - **Result:** Accepted as the current best configuration.
 - **Conclusion:** Batch size 128 produced another valid improvement, confirming that increased token throughput remained beneficial. However, the gain was smaller than the batch 32 and batch 64 improvements, while training time increased to more than 17 minutes. This demonstrates diminishing returns from further batch scaling, so subsequent experiments will target tokenizer and optimization efficiency instead.
+
+## Run 05 — Lossless Hybrid UTF-8 Tokenizer
+
+- **Checkpoint:** `exp05_hybrid_tokenizer.pt`
+- **Hypothesis:** Replacing frequently occurring non-ASCII UTF-8 byte sequences with single character tokens will reduce sequence length for Hindi and other multilingual text while retaining raw-byte fallback for arbitrary unseen UTF-8 input.
+- **Single change:** Replaced the 256-token byte tokenizer with a lossless 320-token hybrid tokenizer containing all 256 byte tokens plus the 64 most frequent non-ASCII characters learned exclusively from `train_corpus.txt`; all model and training settings remained unchanged from Run 04.
+- **Vocabulary size:** 320
+- **Training corpus tokens before:** 7,318,592
+- **Training corpus tokens after:** 5,716,436
+- **Token reduction:** 21.80%
+- **Parameters:** 1,360,320
+- **Training time:** 829 seconds
+- **Final reported training loss:** 1.5773
+- **Dev BPB before:** 1.9380
+- **Dev BPB after:** 1.9020
+- **Absolute improvement over previous best:** 0.0360 BPB
+- **Relative improvement over previous best:** 1.86%
+- **Absolute improvement over baseline:** 0.4698 BPB
+- **Relative improvement over baseline:** 19.81%
+- **Result:** Accepted as the current best configuration.
+- **Conclusion:** The hybrid tokenizer improved BPB while remaining exactly lossless and robust to arbitrary UTF-8 through byte fallback. Its 21.80% reduction in training-token count provides more linguistic context within the fixed 128-token window, particularly for Devanagari text, confirming that multilingual token efficiency was a meaningful limitation of the original byte tokenizer.
