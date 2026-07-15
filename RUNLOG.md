@@ -93,3 +93,21 @@
 - **Relative improvement over baseline:** 19.81%
 - **Result:** Accepted as the current best configuration.
 - **Conclusion:** The hybrid tokenizer improved BPB while remaining exactly lossless and robust to arbitrary UTF-8 through byte fallback. Its 21.80% reduction in training-token count provides more linguistic context within the fixed 128-token window, particularly for Devanagari text, confirming that multilingual token efficiency was a meaningful limitation of the original byte tokenizer.
+
+## Run 06 — AdamW, Warm-up, Cosine Decay and Gradient Clipping
+
+- **Checkpoint:** `exp06_adamw_cosine.pt`
+- **Hypothesis:** A modern optimization recipe may improve convergence within the fixed 2,000-step budget by combining a larger peak learning rate with controlled warm-up, cosine decay, decoupled weight decay and gradient clipping.
+- **Combined training-recipe change:** Replaced plain Adam at a constant `3e-4` learning rate with AdamW using betas `(0.9, 0.95)`, weight decay `0.1` on matrix parameters, peak learning rate `6e-4`, 100 warm-up steps, cosine decay to `6e-5`, and global gradient clipping at `1.0`. The accepted hybrid tokenizer, model architecture, batch size, seed and step count remained unchanged from Run 05.
+- **Batch size:** 128
+- **Parameters:** 1,360,320
+- **Training time:** 959 seconds
+- **Final reported training loss:** 1.5419
+- **Dev BPB before:** 1.9020
+- **Dev BPB after:** 1.8773
+- **Absolute improvement over previous best:** 0.0247 BPB
+- **Relative improvement over previous best:** 1.30%
+- **Absolute improvement over baseline:** 0.4945 BPB
+- **Relative improvement over baseline:** 20.85%
+- **Result:** Accepted as the final best configuration.
+- **Conclusion:** The scheduled AdamW recipe improved both final training loss and dev BPB. Warm-up stabilized the larger peak learning rate, cosine decay reduced late-stage update noise, decoupled weight decay regularized matrix parameters, and gradient clipping protected against unstable updates. The additional optimization complexity was retained because it produced a measurable improvement under identical model, tokenizer, data and step constraints.
