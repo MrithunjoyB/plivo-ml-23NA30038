@@ -265,26 +265,40 @@
 
   <h2>Human and AI Contribution</h2>
   <p>
-    <strong>Human contribution:</strong>
-    The candidate configured and verified the Apple Silicon CPU environment, executed
-    and monitored every run, validated all hard constraints, tested tokenizer
-    round-trip correctness, maintained the repository and experiment log, compared
-    all configurations using the official BPB scorer, rejected underperforming
-    approaches and selected the final checkpoint.
+    <strong>My manual engineering contribution:</strong>
+    I configured and verified the Apple Silicon CPU environment, inspected the
+    starter implementation, created and maintained the GitHub repository, and
+    manually integrated and reviewed each accepted code change. Before every run,
+    I checked the active files and Git diffs to keep the experiments controlled.
+    I executed and monitored every training run, recorded training time and loss,
+    ran the official BPB evaluation, verified parameter and step limits, and
+    preserved the best checkpoint before attempting riskier modifications.
+  </p>
+
+  <p>
+    I also tested tokenizer round-trip correctness across English, Hindi,
+    Devanagari, emoji and other UTF-8 text; checked that only the supplied corpus
+    was used; maintained RUNLOG.md; validated checkpoint hashes; prepared the
+    required submission files; and performed the final repository and compliance
+    audit. I reviewed the measured results after every experiment and accepted or
+    rejected changes according to official BPB rather than training loss or model
+    complexity alone.
   </p>
 
   <p>
     <strong>AI-assisted contribution:</strong>
-    AI tools assisted with proposing experiments, drafting portions of implementation
-    code, debugging shell commands, calculating comparisons and structuring technical
-    documentation.
+    AI tools assisted with brainstorming candidate experiments, drafting portions
+    of Python and shell code, troubleshooting commands, checking calculations and
+    organizing the technical documentation. I did not submit suggestions blindly:
+    each proposed change was manually inspected, executed, tested and evaluated
+    before it was retained.
   </p>
 
   <p>
-    <strong>Shared contribution:</strong>
-    Hypotheses and interpretations were refined iteratively, while every proposed
-    modification was manually reviewed, executed, measured and accepted or rejected
-    based on reproducible results.
+    <strong>Technical ownership:</strong>
+    AI accelerated implementation, while I remained responsible for operating the
+    experimental workflow, verifying compliance, interpreting the results,
+    maintaining the repository and approving the final system and checkpoint.
   </p>
 
   <h2>Compliance</h2>
@@ -297,7 +311,7 @@
   </p>
 
   <footer>
-    This summary was generated with AI assistance from the verified RUNLOG.md,
+    I prepared this summary with AI assistance using the verified RUNLOG.md,
     NOTES.md, final configuration and measured evaluation results.
   </footer>
 </main>
