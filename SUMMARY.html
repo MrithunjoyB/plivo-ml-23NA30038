@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plivo LLM Speedrun — Technical Summary</title>
+  <style>
+    :root {
+      --background: #f4f6f8;
+      --surface: #ffffff;
+      --text: #16181d;
+      --muted: #606a78;
+      --border: #dde2e8;
+      --accent: #5b3df5;
+      --success: #087f5b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--background);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.6;
+    }
+
+    main {
+      width: min(1050px, calc(100% - 32px));
+      margin: 32px auto;
+      padding: 42px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: 0 16px 45px rgba(20, 25, 35, 0.08);
+    }
+
+    h1 {
+      margin-bottom: 6px;
+      font-size: 2.3rem;
+      line-height: 1.2;
+    }
+
+    h2 {
+      margin-top: 38px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .subtitle {
+      margin-top: 0;
+      color: var(--muted);
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 14px;
+      margin: 28px 0;
+    }
+
+    .metric {
+      padding: 18px;
+      background: #fafbfc;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    .metric strong {
+      display: block;
+      color: var(--accent);
+      font-size: 1.55rem;
+    }
+
+    .callout {
+      padding: 18px 20px;
+      background: #f2efff;
+      border-left: 5px solid var(--accent);
+      border-radius: 8px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 0.95rem;
+    }
+
+    th,
+    td {
+      padding: 11px 12px;
+      border: 1px solid var(--border);
+      text-align: left;
+    }
+
+    th {
+      background: #f1f3f5;
+    }
+
+    .winner {
+      background: #eaf8f2;
+      font-weight: 700;
+    }
+
+    code {
+      padding: 2px 6px;
+      background: #eef0f3;
+      border-radius: 5px;
+    }
+
+    .compliance {
+      color: var(--success);
+      font-weight: 700;
+    }
+
+    footer {
+      margin-top: 40px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Plivo 2,000-Step LLM Speedrun</h1>
+  <p class="subtitle">
+    Final technical summary — IIT Kharagpur AI/ML Track — Roll Number 23NA30038
+  </p>
+
+  <section class="metrics">
+    <div class="metric">
+      <strong>1.8773</strong>
+      Final development BPB
+    </div>
+    <div class="metric">
+      <strong>20.85%</strong>
+      Improvement over baseline
+    </div>
+    <div class="metric">
+      <strong>1,360,320</strong>
+      Total parameters
+    </div>
+    <div class="metric">
+      <strong>2,000</strong>
+      Optimizer steps
+    </div>
+  </section>
+
+  <div class="callout">
+    <strong>Final selection:</strong>
+    Run 06 was selected because it achieved the lowest measured BPB while
+    satisfying every step, parameter, data, dependency, tokenizer and CPU constraint.
+  </div>
+
+  <h2>Final Architecture</h2>
+  <p>
+    The final model is a decoder-only causal transformer containing four transformer
+    blocks, four self-attention heads, a 160-dimensional embedding and a 128-token
+    context window. It uses learned positional embeddings, pre-layer normalization,
+    causal scaled dot-product attention and GELU feed-forward networks. The final
+    checkpoint contains 1,360,320 trainable parameters, safely below the
+    2,000,000-parameter limit.
+  </p>
+
+  <h2>Lossless Multilingual Tokenizer</h2>
+  <p>
+    The original tokenizer represented every UTF-8 byte independently. The final
+    tokenizer retains all 256 raw-byte tokens as universal fallback tokens and adds
+    64 frequent non-ASCII character tokens learned exclusively from
+    <code>train_corpus.txt</code>. Therefore, arbitrary UTF-8 remains exactly
+    representable, including unseen characters.
+  </p>
+  <p>
+    The tokenizer reduced the supplied corpus from 7,318,592 tokens to 5,716,436
+    tokens, a reduction of 21.80%. This provides more linguistic context inside the
+    fixed context window, particularly for Devanagari text.
+  </p>
+
+  <h2>Final Training Recipe</h2>
+  <p>
+    The final model was trained locally on CPU for exactly 2,000 optimizer steps with
+    batch size 128. The optimization system used AdamW with betas
+    <code>(0.9, 0.95)</code>, peak learning rate <code>6e-4</code>, 100 linear
+    warm-up steps, cosine learning-rate decay to <code>6e-5</code>, weight decay
+    <code>0.1</code> on matrix parameters and global gradient clipping at
+    <code>1.0</code>.
+  </p>
+
+  <h2>Experiment History</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Run</th>
+        <th>Main modification</th>
+        <th>Parameters</th>
+        <th>Dev BPB</th>
+        <th>Decision</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>00</td>
+        <td>Official starter baseline, batch size 8</td>
+        <td>1,339,840</td>
+        <td>2.3718</td>
+        <td>Reference</td>
+      </tr>
+      <tr>
+        <td>01</td>
+        <td>Weight tying</td>
+        <td>1,298,880</td>
+        <td>2.4122</td>
+        <td>Rejected</td>
+      </tr>
+      <tr>
+        <td>02</td>
+        <td>Batch size 32</td>
+        <td>1,339,840</td>
+        <td>2.0943</td>
+        <td>Accepted</td>
+      </tr>
+      <tr>
+        <td>03</td>
+        <td>Batch size 64</td>
+        <td>1,339,840</td>
+        <td>1.9969</td>
+        <td>Accepted</td>
+      </tr>
+      <tr>
+        <td>04</td>
+        <td>Batch size 128</td>
+        <td>1,339,840</td>
+        <td>1.9380</td>
+        <td>Accepted</td>
+      </tr>
+      <tr>
+        <td>05</td>
+        <td>Lossless hybrid UTF-8 tokenizer</td>
+        <td>1,360,320</td>
+        <td>1.9020</td>
+        <td>Accepted</td>
+      </tr>
+      <tr class="winner">
+        <td>06</td>
+        <td>AdamW, warm-up, cosine decay and gradient clipping</td>
+        <td>1,360,320</td>
+        <td>1.8773</td>
+        <td>Final winner</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Engineering Conclusions</h2>
+  <p>
+    The largest improvement came from increasing useful token exposure within the
+    fixed optimizer-step budget. Weight tying reduced parameter count but worsened
+    generalization and was therefore rejected. Batch-size improvements showed
+    diminishing returns, motivating a shift toward tokenization efficiency rather
+    than unlimited batch scaling. The hybrid tokenizer produced a further measurable
+    improvement, and the final scheduled AdamW recipe reduced BPB again without
+    changing the model architecture.
+  </p>
+
+  <h2>Human and AI Contribution</h2>
+  <p>
+    <strong>Human contribution:</strong>
+    The candidate configured and verified the Apple Silicon CPU environment, executed
+    and monitored every run, validated all hard constraints, tested tokenizer
+    round-trip correctness, maintained the repository and experiment log, compared
+    all configurations using the official BPB scorer, rejected underperforming
+    approaches and selected the final checkpoint.
+  </p>
+
+  <p>
+    <strong>AI-assisted contribution:</strong>
+    AI tools assisted with proposing experiments, drafting portions of implementation
+    code, debugging shell commands, calculating comparisons and structuring technical
+    documentation.
+  </p>
+
+  <p>
+    <strong>Shared contribution:</strong>
+    Hypotheses and interpretations were refined iteratively, while every proposed
+    modification was manually reviewed, executed, measured and accepted or rejected
+    based on reproducible results.
+  </p>
+
+  <h2>Compliance</h2>
+  <p class="compliance">
+    2,000 optimizer steps ✓ &nbsp;
+    1,360,320 parameters ✓ &nbsp;
+    supplied corpus only ✓ &nbsp;
+    CPU only ✓ &nbsp;
+    arbitrary UTF-8 byte fallback ✓
+  </p>
+
+  <footer>
+    This summary was generated with AI assistance from the verified RUNLOG.md,
+    NOTES.md, final configuration and measured evaluation results.
+  </footer>
+</main>
+</body>
+</html>

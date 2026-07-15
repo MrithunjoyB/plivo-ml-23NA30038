@@ -1,22 +1,14 @@
-"""Baseline trainer. It WORKS and it is MEDIOCRE ON PURPOSE. Your hour goes
-into changing what it does — schedule, init, optimizer, architecture,
-tokenizer — inside the hard caps.
+"""AdamW trainer with warm-up, cosine decay, and gradient clipping."""
 
-HARD CAPS (checked at grading, violations = disqualified run):
-  * max 2,000 optimizer steps in the run that produces your checkpoint
-  * max 2,000,000 total parameters
-  * training text: the provided train_corpus.txt only
-  * pure PyTorch / numpy / stdlib; no pretrained anything
-
-    python train.py --data ../data/train_corpus.txt --steps 2000 --out ckpt.pt
-"""
 import argparse
+import math
 import time
 
 import torch
 
 from model import GPT, Config
 import tokenizer as tokenizer_mod
+
 
 MAX_STEPS = 2000
 MAX_PARAMS = 2_000_000
@@ -29,61 +21,179 @@ def get_batch(ids, block, batch, device):
     return x.to(device), y.to(device)
 
 
+def get_learning_rate(
+    step,
+    total_steps,
+    peak_lr,
+    warmup_steps,
+    min_lr_ratio,
+):
+    min_lr = peak_lr * min_lr_ratio
+
+    if step <= warmup_steps:
+        return peak_lr * step / max(1, warmup_steps)
+
+    if step >= total_steps:
+        return min_lr
+
+    progress = (step - warmup_steps) / (
+        total_steps - warmup_steps
+    )
+    cosine = 0.5 * (1.0 + math.cos(math.pi * progress))
+    return min_lr + cosine * (peak_lr - min_lr)
+
+
+def build_optimizer(model, lr, weight_decay):
+    decay = []
+    no_decay = []
+
+    for parameter in model.parameters():
+        if not parameter.requires_grad:
+            continue
+
+        if parameter.dim() >= 2:
+            decay.append(parameter)
+        else:
+            no_decay.append(parameter)
+
+    parameter_groups = [
+        {
+            "params": decay,
+            "weight_decay": weight_decay,
+        },
+        {
+            "params": no_decay,
+            "weight_decay": 0.0,
+        },
+    ]
+
+    return torch.optim.AdamW(
+        parameter_groups,
+        lr=lr,
+        betas=(0.9, 0.95),
+        eps=1e-8,
+    )
+
+
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--data", required=True)
-    ap.add_argument("--steps", type=int, default=2000)
-    ap.add_argument("--batch", type=int, default=8)
-    ap.add_argument("--lr", type=float, default=3e-4)
-    ap.add_argument("--seed", type=int, default=1337)
-    ap.add_argument("--out", default="ckpt.pt")
-    ap.add_argument("--log_every", type=int, default=100)
-    args = ap.parse_args()
-    assert args.steps <= MAX_STEPS, f"cap: max {MAX_STEPS} steps"
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data", required=True)
+    parser.add_argument("--steps", type=int, default=2000)
+    parser.add_argument("--batch", type=int, default=128)
+    parser.add_argument("--lr", type=float, default=6e-4)
+    parser.add_argument("--warmup_steps", type=int, default=100)
+    parser.add_argument("--min_lr_ratio", type=float, default=0.1)
+    parser.add_argument("--weight_decay", type=float, default=0.1)
+    parser.add_argument("--grad_clip", type=float, default=1.0)
+    parser.add_argument("--seed", type=int, default=1337)
+    parser.add_argument("--out", default="ckpt.pt")
+    parser.add_argument("--log_every", type=int, default=100)
+    args = parser.parse_args()
+
+    assert args.steps <= MAX_STEPS
+    assert 0 <= args.warmup_steps < args.steps
+    assert 0 < args.min_lr_ratio <= 1
+    assert args.grad_clip > 0
+
     torch.manual_seed(args.seed)
     device = "cpu"
 
     text = open(args.data, encoding="utf-8").read()
-    tok = tokenizer_mod.load()
-    ids = torch.tensor(tok.encode(text), dtype=torch.long)
-    print(f"corpus: {len(text.encode('utf-8')):,} bytes -> {len(ids):,} tokens "
-          f"(vocab {tok.vocab_size})")
+    tokenizer = tokenizer_mod.load()
+    ids = torch.tensor(
+        tokenizer.encode(text),
+        dtype=torch.long,
+    )
 
-    cfg = Config()
-    cfg.vocab_size = tok.vocab_size
-    model = GPT(cfg).to(device)
-    n = model.n_params()
-    print(f"model: {n:,} params")
-    assert n <= MAX_PARAMS, f"cap: max {MAX_PARAMS:,} params"
+    print(
+        f"corpus: {len(text.encode('utf-8')):,} bytes -> "
+        f"{len(ids):,} tokens "
+        f"(vocab {tokenizer.vocab_size})"
+    )
 
-    # baseline choices, all questionable on purpose:
-    opt = torch.optim.Adam(model.parameters(), lr=args.lr)  # constant LR,
-    # no warmup, no schedule, no weight decay, no gradient clipping.
+    config = Config()
+    config.vocab_size = tokenizer.vocab_size
+
+    model = GPT(config).to(device)
+    parameter_count = model.n_params()
+
+    print(f"model: {parameter_count:,} params")
+    assert parameter_count <= MAX_PARAMS
+
+    optimizer = build_optimizer(
+        model,
+        lr=args.lr,
+        weight_decay=args.weight_decay,
+    )
 
     model.train()
-    t0 = time.time()
+    started = time.time()
     losses = []
-    for step in range(1, args.steps + 1):
-        x, y = get_batch(ids, cfg.block_size, args.batch, device)
-        _, loss = model(x, y)
-        opt.zero_grad(set_to_none=True)
-        loss.backward()
-        opt.step()
-        losses.append(loss.item())
-        if step % args.log_every == 0 or step == 1:
-            avg = sum(losses[-args.log_every:]) / len(losses[-args.log_every:])
-            print(f"step {step:5d}  loss {avg:.4f}  "
-                  f"({(time.time()-t0)/step*1000:.0f} ms/step)")
 
-    # every public config attribute is saved — if you add fields to Config,
-    # they ride along automatically and evaluate.py rebuilds the same model
-    torch.save({"model": model.state_dict(),
-                "config": {k: getattr(cfg, k) for k in dir(cfg)
-                           if not k.startswith("_")
-                           and not callable(getattr(cfg, k))},
-                "steps": args.steps,
-                "train_loss_curve": losses}, args.out)
-    print(f"saved {args.out}  ({time.time()-t0:.0f}s total)")
+    for step in range(1, args.steps + 1):
+        learning_rate = get_learning_rate(
+            step=step,
+            total_steps=args.steps,
+            peak_lr=args.lr,
+            warmup_steps=args.warmup_steps,
+            min_lr_ratio=args.min_lr_ratio,
+        )
+
+        for group in optimizer.param_groups:
+            group["lr"] = learning_rate
+
+        x, y = get_batch(
+            ids,
+            config.block_size,
+            args.batch,
+            device,
+        )
+
+        _, loss = model(x, y)
+
+        optimizer.zero_grad(set_to_none=True)
+        loss.backward()
+
+        torch.nn.utils.clip_grad_norm_(
+            model.parameters(),
+            args.grad_clip,
+        )
+
+        optimizer.step()
+        losses.append(loss.item())
+
+        if step == 1 or step % args.log_every == 0:
+            recent = losses[-args.log_every:]
+            average_loss = sum(recent) / len(recent)
+            elapsed_ms = (
+                (time.time() - started) / step * 1000
+            )
+
+            print(
+                f"step {step:5d}  "
+                f"loss {average_loss:.4f}  "
+                f"lr {learning_rate:.2e}  "
+                f"({elapsed_ms:.0f} ms/step)"
+            )
+
+    checkpoint = {
+        "model": model.state_dict(),
+        "config": {
+            key: getattr(config, key)
+            for key in dir(config)
+            if not key.startswith("_")
+            and not callable(getattr(config, key))
+        },
+        "steps": args.steps,
+        "train_loss_curve": losses,
+    }
+
+    torch.save(checkpoint, args.out)
+
+    print(
+        f"saved {args.out} "
+        f"({time.time() - started:.0f}s total)"
+    )
 
 
 if __name__ == "__main__":
